@@ -149,6 +149,75 @@
             100% { opacity: 1; }
         }
 
+        /* Promo Push Notification Toast */
+        .promo-toast-container {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 400px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .promo-toast {
+            background: #1e2b32;
+            border: 1px solid #fc8019;
+            border-left: 5px solid #fc8019;
+            border-radius: 10px;
+            padding: 12px 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            color: #fff;
+            pointer-events: auto;
+            animation: slideDown 0.4s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
+        }
+        .promo-toast.zomato {
+            border-color: #cb202d;
+            border-left-color: #cb202d;
+        }
+        .promo-toast-icon {
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+        .promo-toast-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .promo-toast-tag {
+            font-size: 0.65rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #fc8019;
+            margin-bottom: 2px;
+        }
+        .promo-toast.zomato .promo-toast-tag { color: #e53935; }
+        .promo-toast-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 2px; color: #fff; }
+        .promo-toast-desc { font-size: 0.78rem; color: #aebac1; line-height: 1.3; }
+        .promo-toast-close {
+            background: none;
+            border: none;
+            color: #8696a0;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 2px;
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
         .input-area { display: flex; align-items: flex-end; padding: 8px 10px; gap: 8px; box-sizing: border-box; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
         
         .input-area textarea { 
@@ -198,6 +267,9 @@
         </div>
     </div>
 
+    <!-- Container for In-App Banner Push Notifications -->
+    <div id="promo-toast-container" class="promo-toast-container"></div>
+
     <div id="chat-screen" class="container hidden">
         <div class="chat-box">
             <div class="chat-header">
@@ -211,7 +283,10 @@
                         <span id="typing-status"></span>
                     </div>
                 </div>
-                <button id="logout-btn">Log Out</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button id="trigger-ad-btn" style="background: #fc8019; border: none; color: #fff; font-size: 0.75rem; font-weight: bold; padding: 5px 8px; border-radius: 6px; cursor: pointer;">🔔 Send Ad Offer</button>
+                    <button id="logout-btn">Log Out</button>
+                </div>
             </div>
             
             <div id="chat-messages" class="messages-area">
@@ -227,6 +302,33 @@
                         <button id="close-gallery-btn" class="close-top-bar">&times;</button>
                     </div>
                     <div id="media-grid-container" class="media-grid"></div>
+                </div>
+            </div>
+
+            <!-- Promo / Ad Notification Modal -->
+            <div id="promo-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 440px; border-color: #fc8019;">
+                    <div class="modal-header" style="background: #1e2b32; border-bottom: 1px solid #fc8019;">
+                        <h3 style="color: #fc8019; display: flex; align-items: center; gap: 6px;">📢 Send Swiggy/Zomato Promo Ad Notification</h3>
+                        <button id="close-promo-btn" class="close-top-bar">&times;</button>
+                    </div>
+                    <div style="padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                        <label style="font-size: 0.8rem; color: #8696a0; font-weight: bold;">SELECT TEMPLATE OFFER:</label>
+                        <div id="promo-templates-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 180px; overflow-y: auto;">
+                        </div>
+
+                        <hr style="border: none; border-top: 1px solid #2a3942; margin: 4px 0;">
+
+                        <label style="font-size: 0.8rem; color: #8696a0; font-weight: bold;">OR CREATE CUSTOM AD NOTIFICATION:</label>
+                        <select id="promo-brand-select" style="padding: 8px; border-radius: 6px; background: #202c33; color: #fff; border: 1px solid #2a3942;">
+                            <option value="Swiggy 🍔">Swiggy Style (Orange)</option>
+                            <option value="Zomato 🍕">Zomato Style (Red)</option>
+                        </select>
+                        <input type="text" id="custom-promo-title" placeholder="Notification Title (e.g., 50% OFF Biryani 🔥)" style="padding: 10px; border-radius: 6px; background: #202c33; color: #fff; border: 1px solid #2a3942; font-size: 0.9rem;">
+                        <textarea id="custom-promo-body" placeholder="Notification Description text..." rows="2" style="padding: 10px; border-radius: 6px; background: #202c33; color: #fff; border: 1px solid #2a3942; font-size: 0.9rem; resize: none;"></textarea>
+
+                        <button id="send-promo-push-btn" style="background: #fc8019; border: none; color: #fff; font-weight: bold; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; margin-top: 6px;">🚀 Trigger Push Notification</button>
+                    </div>
                 </div>
             </div>
 
@@ -349,6 +451,7 @@
                 
                 setupPresenceEngine();
                 loadChatsStrictOrder();
+                requestNotificationPermission();
             } else {
                 document.getElementById('error-log').innerText = "FAIL: Invalid username or password!";
             }
