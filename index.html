@@ -364,6 +364,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, set, update, query, limitToLast, orderByKey, endAt, get, onChildAdded, onChildChanged, serverTimestamp, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
         import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
         const firebaseConfig = {
@@ -373,11 +374,14 @@
             projectId: "sr-login-cef1c",
             storageBucket: "sr-login-cef1c.firebasestorage.app",
             messagingSenderId: "998421619255",
-            appId: "1:998421619255:web:5f12b5c71ed93ac5c115b2"
+            appId: "1:998421619255:web:5f12b5c71ed93ac5c115b2",
+            measurementId: "G-D608WM0M65"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const messaging = getMessaging(app);
+        const VAPID_KEY = "BMRr8bB6Rc-fUfixAJEygNC5eCss_jFP0256AkeWytVL9NvQJN7sAqqqOEOe5MLKIUBwtrNAmi80XFjwVvRUSFY";
 
         const SUPABASE_URL = "https://mogirffjqlbciwgyiqkx.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_fcn77s414JmfsLxQ95PBbw_O5tnt3Wy";
@@ -1090,6 +1094,80 @@
                 DOM.mediaGridContainer.appendChild(thumbDiv);
             });
         }
+
+        // --- FIREBASE CLOUD MESSAGING (FCM) PUSH NOTIFICATIONS ---
+        async function requestNotificationPermission() {
+            if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+                console.warn('Push notifications are not supported in this browser.');
+                return;
+            }
+
+            try {
+                // Register service worker for background messaging
+                const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                console.log('FCM Service Worker registered successfully:', registration);
+
+                // Request notification permission from user
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+                    
+                    // Retrieve FCM registration token using VAPID key
+                    const token = await getToken(messaging, {
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: registration
+                    });
+
+                    if (token) {
+                        console.log('FCM Device Token:', token);
+                        // Save FCM Token under user's node in Realtime Database
+                        if (currentUser) {
+                            await set(ref(db, `chats/fcm_tokens/${currentUser}`), {
+                                token: token,
+                                updatedAt: serverTimestamp()
+                            });
+                        }
+                    } else {
+                        console.warn('No registration token available. Request permission to generate one.');
+                    }
+                } else {
+                    console.warn('Notification permission denied by user.');
+                }
+            } catch (err) {
+                console.error('An error occurred while retrieving FCM token:', err);
+            }
+        }
+
+        // Foreground Message Listener
+        onMessage(messaging, (payload) => {
+            console.log('Foreground Push Notification Received:', payload);
+            
+            const title = payload.notification?.title || payload.data?.title || 'New Push Notification';
+            const body = payload.notification?.body || payload.data?.body || 'You have a new message.';
+
+            // Display in-app promo toast or standard browser notification
+            const toastContainer = document.getElementById('promo-toast-container');
+            if (toastContainer) {
+                const toast = document.createElement('div');
+                toast.className = 'promo-toast';
+                toast.innerHTML = `
+                    <div class="promo-toast-icon">🔔</div>
+                    <div class="promo-toast-body">
+                        <div class="promo-toast-tag">Push Notification</div>
+                        <div class="promo-toast-title">${title}</div>
+                        <div class="promo-toast-desc">${body}</div>
+                    </div>
+                    <button class="promo-toast-close" onclick="this.parentElement.remove()">&times;</button>
+                `;
+                toastContainer.appendChild(toast);
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 5000);
+            }
+
+            // Native Web Notification if app window is active and permission granted
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: '/favicon.ico' });
+            }
+        });
 
         document.getElementById('logout-btn').addEventListener('click', async () => {
             await setTyping(false);
